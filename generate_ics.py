@@ -21,8 +21,12 @@ from config import (
     ENABLE_STANDALONE_REMINDER_EVENTS,
     REMINDER_EVENT_DURATION_MINUTES,
     REMINDERS,
+    PREVIOUS_DAY_REMINDER_HOUR,
+    PREVIOUS_DAY_REMINDER_MINUTE,
     PREVIOUS_DAY_REMINDER_SUMMARY,
     PREVIOUS_DAY_REMINDER_DESCRIPTION,
+    SAME_DAY_REMINDER_HOUR,
+    SAME_DAY_REMINDER_MINUTE,
     SAME_DAY_REMINDER_SUMMARY,
     SAME_DAY_REMINDER_DESCRIPTION,
 )
@@ -109,11 +113,10 @@ def validate_periods() -> None:
 
 def generate_valarms() -> str:
     """
-    为主限行事件生成 VALARM。
+    生成 VALARM。
 
-    注意：
-    - 前一天 20:00：TRIGGER:-PT11H
-    - 当天 07:00：TRIGGER:PT0S
+    当前配置中 ENABLE_VALARM=False，所以主限行事件不会写入 VALARM。
+    该函数保留用于以后需要恢复 VALARM 时使用。
     """
     if not ENABLE_VALARM:
         return ""
@@ -146,9 +149,7 @@ def build_event(
     构建标准 VEVENT。
     """
     uid = f"{uuid.uuid5(uuid.NAMESPACE_DNS, uid_seed)}@beijing-traffic-limit-calendar"
-
     transparency = "TRANSPARENT" if transparent else "OPAQUE"
-
     alarm_part = f"\n{alarms_text}" if alarms_text else ""
 
     return f"""BEGIN:VEVENT
@@ -165,9 +166,18 @@ DESCRIPTION:{escape_ics_text(description)}{alarm_part}
 END:VEVENT"""
 
 
-def generate_main_limit_event(current_date, period_name: str, weekday: int, dtstamp: str) -> str:
+def generate_main_limit_event(
+    current_date,
+    period_name: str,
+    weekday: int,
+    dtstamp: str,
+) -> str:
     """
     生成主限行事件：当天 07:00 - 20:00。
+
+    注意：
+    主限行事件只显示，不提醒。
+    不写入 VALARM，避免 iOS 显示默认“1小时前提醒”。
     """
     start_dt = datetime.combine(
         current_date,
@@ -198,7 +208,7 @@ def generate_main_limit_event(current_date, period_name: str, weekday: int, dtst
         summary=EVENT_SUMMARY,
         description=description,
         dtstamp=dtstamp,
-        alarms_text=generate_valarms(),
+        alarms_text="",  # 主事件不提醒
         transparent=False,
     )
 
@@ -214,13 +224,15 @@ def generate_previous_day_reminder_event(current_date, dtstamp: str) -> str:
 
     start_dt = datetime.combine(
         reminder_date,
-        time(20, 0),
+        time(PREVIOUS_DAY_REMINDER_HOUR, PREVIOUS_DAY_REMINDER_MINUTE),
         tzinfo=TZ,
     )
 
     end_dt = start_dt + timedelta(minutes=REMINDER_EVENT_DURATION_MINUTES)
 
-    uid_seed = f"previous-day-reminder-{TARGET_TAIL_NUMBERS}-{current_date.isoformat()}"
+    uid_seed = (
+        f"previous-day-reminder-{TARGET_TAIL_NUMBERS}-{current_date.isoformat()}"
+    )
 
     description = (
         f"{PREVIOUS_DAY_REMINDER_DESCRIPTION}"
@@ -242,13 +254,13 @@ def generate_previous_day_reminder_event(current_date, dtstamp: str) -> str:
 
 def generate_same_day_reminder_event(current_date, dtstamp: str) -> str:
     """
-    生成当天 07:00 的独立提醒事件。
+    生成当天 08:00 的独立提醒事件。
 
-    时间为 07:00 - 07:05。
+    时间为 08:00 - 08:05。
     """
     start_dt = datetime.combine(
         current_date,
-        time(LIMIT_START_HOUR, LIMIT_START_MINUTE),
+        time(SAME_DAY_REMINDER_HOUR, SAME_DAY_REMINDER_MINUTE),
         tzinfo=TZ,
     )
 
@@ -279,9 +291,9 @@ def generate_events() -> list[str]:
     根据 LIMIT_PERIODS 生成所有事件。
 
     每个限行日生成：
-    1. 主限行事件：07:00 - 20:00
-    2. 可选：前一天 20:00 独立提醒事件
-    3. 可选：当天 07:00 独立提醒事件
+    1. 前一天 20:00 - 20:05 提醒事件：明天北京尾号4/9限行
+    2. 当天 07:00 - 20:00 主限行事件：北京尾号4/9限行，只显示不提醒
+    3. 当天 08:00 - 08:05 提醒事件：今天北京尾号4/9限行
     """
     validate_periods()
 
@@ -294,7 +306,14 @@ def generate_events() -> list[str]:
         current = period["start"]
         while current <= period["end"]:
             if current.weekday() == target_weekday and current not in EXCLUDE_DATES:
-                # 主限行事件
+                if ENABLE_STANDALONE_REMINDER_EVENTS:
+                    events.append(
+                        generate_previous_day_reminder_event(
+                            current_date=current,
+                            dtstamp=dtstamp,
+                        )
+                    )
+
                 events.append(
                     generate_main_limit_event(
                         current_date=current,
@@ -304,14 +323,7 @@ def generate_events() -> list[str]:
                     )
                 )
 
-                # 独立提醒事件，兼容 iOS 不读取 VALARM 的情况
                 if ENABLE_STANDALONE_REMINDER_EVENTS:
-                    events.append(
-                        generate_previous_day_reminder_event(
-                            current_date=current,
-                            dtstamp=dtstamp,
-                        )
-                    )
                     events.append(
                         generate_same_day_reminder_event(
                             current_date=current,
@@ -390,6 +402,9 @@ def main() -> None:
             f"{WEEKDAY_NAMES[weekday]} 限行"
         )
 
+    print("\nMain limit event:")
+    print("  当天 07:00 - 20:00：只显示，不提醒")
+
     print("\nVALARM:")
     print(f"  {'enabled' if ENABLE_VALARM else 'disabled'}")
 
@@ -397,8 +412,8 @@ def main() -> None:
     print(f"  {'enabled' if ENABLE_STANDALONE_REMINDER_EVENTS else 'disabled'}")
 
     if ENABLE_STANDALONE_REMINDER_EVENTS:
-        print("  前一天 20:00 - 20:05")
-        print("  当天 07:00 - 07:05")
+        print("  前一天 20:00 - 20:05：明天北京尾号4/9限行")
+        print("  当天 08:00 - 08:05：今天北京尾号4/9限行")
 
 
 if __name__ == "__main__":

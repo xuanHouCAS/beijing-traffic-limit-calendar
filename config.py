@@ -31,45 +31,35 @@ OUTPUT_ICS_PATH = "docs/beijing_49_limit.ics"
 # 提醒配置
 # =========================
 
-# 是否在限行事件中写入 VALARM
-# 注意：部分 iOS 订阅日历可能不会完全采用 VALARM，而是使用系统默认提醒。
-ENABLE_VALARM = True
+# 主限行事件是否写入 VALARM
+# 这里关闭，避免 iOS 订阅日历给 07:00-20:00 主事件显示默认“1小时前提醒”
+ENABLE_VALARM = False
 
 # 是否额外生成“提醒事件”
-# 推荐开启，兼容性比 VALARM 更好。
-# 开启后会额外生成：
-# 1. 前一天 20:00 - 20:05：明天限行提醒
-# 2. 当天 07:00 - 07:05：今天限行提醒
+# 推荐开启。提醒通过短事件实现，兼容 iOS 更稳定。
 ENABLE_STANDALONE_REMINDER_EVENTS = True
 
 # 提醒事件持续时间，单位：分钟
 REMINDER_EVENT_DURATION_MINUTES = 5
 
-# VALARM 提醒
-# 主事件开始时间是当天 07:00
-# 前一天 20:00 距离当天 07:00 是 11 小时，所以是 -PT11H
-# 当天 07:00 用 PT0S，不建议用 -PT0M
-REMINDERS = [
-    {
-        "trigger": "-PT11H",
-        "description": "明天北京尾号4/9限行，注意提前安排出行。",
-    },
-    {
-        "trigger": "PT0S",
-        "description": "今天北京尾号4/9限行，当前已进入限行时段。",
-    },
-]
-
-# 独立提醒事件文案
+# 前一天 20:00 提醒事件
+PREVIOUS_DAY_REMINDER_HOUR = 20
+PREVIOUS_DAY_REMINDER_MINUTE = 0
 PREVIOUS_DAY_REMINDER_SUMMARY = "明天北京尾号4/9限行"
 PREVIOUS_DAY_REMINDER_DESCRIPTION = (
     "明天北京尾号4/9限行，请提前安排出行。"
 )
 
+# 当天 08:00 提醒事件
+SAME_DAY_REMINDER_HOUR = 8
+SAME_DAY_REMINDER_MINUTE = 0
 SAME_DAY_REMINDER_SUMMARY = "今天北京尾号4/9限行"
 SAME_DAY_REMINDER_DESCRIPTION = (
     "今天北京尾号4/9限行，限行时间为07:00-20:00。"
 )
+
+# 兼容旧逻辑保留；当前 ENABLE_VALARM=False，不会使用
+REMINDERS = []
 
 
 # =========================
