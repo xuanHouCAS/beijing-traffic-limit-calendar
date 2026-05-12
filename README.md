@@ -11,13 +11,13 @@
 项目提供一个 GitHub Pages 页面，包含订阅链接、ICS 下载入口和不同设备的使用说明：
 
 ```text
-https://xuanhoucas.github.io/beijing-traffic-limit-calendar/
+https://lxuanhou.github.io/beijing-traffic-limit-calendar/
 ```
 
 当前生成的日历订阅地址：
 
 ```text
-https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
+https://lxuanhou.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
 ```
 
 iOS 添加路径：
@@ -192,7 +192,7 @@ beijing-traffic-limit-calendar/
 ### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/xuanHouCAS/beijing-traffic-limit-calendar.git
+git clone https://github.com/LXuanHou/beijing-traffic-limit-calendar.git
 cd beijing-traffic-limit-calendar
 ```
 
@@ -283,7 +283,7 @@ grep -n "VALARM" docs/beijing_49_limit.ics
 打开：
 
 ```text
-https://xuanhoucas.github.io/beijing-traffic-limit-calendar/
+https://lxuanhou.github.io/beijing-traffic-limit-calendar/
 ```
 
 页面中提供：
@@ -298,7 +298,7 @@ https://xuanhoucas.github.io/beijing-traffic-limit-calendar/
 订阅地址：
 
 ```text
-https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
+https://lxuanhou.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
 ```
 
 常见客户端添加方式：
@@ -321,7 +321,7 @@ https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
 如果系统日历支持“订阅日历 / URL 导入 / 网络日历 / 添加日历”，可以直接添加：
 
 ```text
-https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
+https://lxuanhou.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
 ```
 
 这种方式会随 GitHub Pages 上的 `.ics` 更新而自动同步。
@@ -331,7 +331,7 @@ https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
 如果系统日历不支持 URL 订阅，可以打开：
 
 ```text
-https://xuanhoucas.github.io/beijing-traffic-limit-calendar/
+https://lxuanhou.github.io/beijing-traffic-limit-calendar/
 ```
 
 点击“下载 ICS 文件”，然后用系统日历打开并导入。
@@ -367,13 +367,13 @@ Folder: /docs
 最终首页地址：
 
 ```text
-https://xuanhoucas.github.io/beijing-traffic-limit-calendar/
+https://lxuanhou.github.io/beijing-traffic-limit-calendar/
 ```
 
 最终订阅链接：
 
 ```text
-https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
+https://lxuanhou.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
 ```
 
 ---

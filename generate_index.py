@@ -22,7 +22,7 @@ from config import (
 )
 
 # GitHub Pages 基础地址
-SITE_BASE_URL = "https://xuanhoucas.github.io/beijing-traffic-limit-calendar"
+SITE_BASE_URL = "https://lxuanhou.github.io/beijing-traffic-limit-calendar"
 
 # 输出 HTML 路径
 OUTPUT_HTML_PATH = "docs/index.html"
