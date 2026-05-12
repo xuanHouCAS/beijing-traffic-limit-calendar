@@ -32,14 +32,14 @@ OUTPUT_ICS_PATH = "docs/beijing_49_limit.ics"
 # =========================
 
 # 主限行事件是否写入 VALARM
-# 这里关闭，避免 iOS 订阅日历给 07:00-20:00 主事件显示默认“1小时前提醒”
-ENABLE_VALARM = False
+# 开启后，主限行事件会在开始后 1 小时提醒。
+# 主事件时间是 07:00 - 20:00，因此提醒时间是当天 08:00。
+ENABLE_VALARM = True
 
-# 是否额外生成“提醒事件”
-# 推荐开启。提醒通过短事件实现，兼容 iOS 更稳定。
+# 是否额外生成“前一天提醒事件”
 ENABLE_STANDALONE_REMINDER_EVENTS = True
 
-# 提醒事件持续时间，单位：分钟
+# 前一天提醒事件持续时间，单位：分钟
 REMINDER_EVENT_DURATION_MINUTES = 5
 
 # 前一天 20:00 提醒事件
@@ -50,16 +50,19 @@ PREVIOUS_DAY_REMINDER_DESCRIPTION = (
     "明天北京尾号4/9限行，请提前安排出行。"
 )
 
-# 当天 08:00 提醒事件
-SAME_DAY_REMINDER_HOUR = 8
-SAME_DAY_REMINDER_MINUTE = 0
-SAME_DAY_REMINDER_SUMMARY = "今天北京尾号4/9限行"
-SAME_DAY_REMINDER_DESCRIPTION = (
-    "今天北京尾号4/9限行，限行时间为07:00-20:00。"
+# 主限行事件提醒：事件开始后 1 小时，也就是当天 08:00
+MAIN_EVENT_REMINDER_TRIGGER = "PT1H"
+MAIN_EVENT_REMINDER_DESCRIPTION = (
+    "今天北京尾号4/9限行，当前已进入限行时段。"
 )
 
-# 兼容旧逻辑保留；当前 ENABLE_VALARM=False，不会使用
-REMINDERS = []
+# 主事件提醒列表
+REMINDERS = [
+    {
+        "trigger": MAIN_EVENT_REMINDER_TRIGGER,
+        "description": MAIN_EVENT_REMINDER_DESCRIPTION,
+    },
+]
 
 
 # =========================

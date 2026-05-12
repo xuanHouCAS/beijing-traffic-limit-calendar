@@ -2,10 +2,10 @@
 
 一个根据北京市机动车工作日尾号限行规则，自动生成 `.ics` 日历订阅文件的小工具。
 
-订阅生成后的日历后，每个限行日都会在手机 / 电脑日历中自动出现一条 **07:00 - 20:00** 的限行事件，并支持两次提醒：
+订阅生成后的日历后，每个限行日会在手机 / 电脑日历中生成限行日程，并支持两次提醒：
 
-- **前一天 20:00**：提醒明天限行
-- **当天 08:00**：提醒当前已进入限行时段
+- **前一天 20:00**：通过一个 5 分钟提醒事件，提醒明天限行
+- **当天 08:00**：通过主限行事件的 `VALARM`，在限行开始 1 小时后提醒当前已进入限行时段
 
 当前版本默认针对 **车牌尾号 4 / 9** 的车辆。其他尾号可以通过修改 `config.py` 后自行生成。
 
@@ -47,6 +47,36 @@ iOS 添加路径：
 - 限行时间：**07:00 - 20:00**
 - 限行范围：五环路以内道路，不含五环路
 - 法定节假日、临时不限行等特殊日期，可在 `config.py` 的 `EXCLUDE_DATES` 中维护
+
+---
+
+## 日程与提醒设计
+
+每个限行日会生成 **2 个日程事件**：
+
+| 事件 | 时间 | 提醒方式 | 说明 |
+| --- | --- | --- | --- |
+| 前一天提醒事件 | 前一天 20:00 - 20:05 | 日程开始时提醒，`TRIGGER:PT0S` | 提醒明天尾号 4/9 限行 |
+| 主限行事件 | 当天 07:00 - 20:00 | 日程开始后 1 小时提醒，`TRIGGER:PT1H` | 也就是当天 08:00 提醒 |
+
+也就是说，日历中会显示：
+
+```text
+前一天 20:00 - 20:05：明天北京尾号4/9限行
+当天 07:00 - 20:00：北京尾号4/9限行
+```
+
+其中当天 08:00 的提醒不再额外生成一个短事件，而是写在主限行事件的 `VALARM` 中：
+
+```ics
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:今天北京尾号4/9限行，当前已进入限行时段。
+TRIGGER:PT1H
+END:VALARM
+```
+
+这样可以避免日历中出现过多短事件，同时仍然能在当天 08:00 收到提醒。
 
 ---
 
@@ -151,7 +181,9 @@ python3 generate_ics.py
 
 ```text
 Generated: docs/beijing_49_limit.ics
-Events: 52
+Total events: 104
+Main limit events: 52
+Standalone reminder events: 52
 
 Target tail numbers:
   4/9
@@ -162,9 +194,13 @@ Limit periods:
   2026年第3轮限行周期: 2026-09-28 ~ 2026-12-27, 周五 限行
   2026年第4轮限行周期: 2026-12-28 ~ 2027-03-28, 周一 限行
 
-Reminders:
-  前一天 20:00
-  当天 07:00
+Reminder strategy:
+  前一天 20:00 - 20:05：明天北京尾号4/9限行，开始时提醒
+  当天 07:00 - 20:00：北京尾号4/9限行，开始后 1 小时提醒
+  当天 08:00 - 08:05：不再生成独立提醒事件
+
+VALARM:
+  enabled
 ```
 
 生成文件默认位于：
@@ -175,22 +211,51 @@ docs/beijing_49_limit.ics
 
 ---
 
-## 提醒逻辑
+## 提醒逻辑说明
 
-每个限行日会生成一条时间段事件：
+### 前一天 20:00 提醒
+
+前一天提醒通过一个独立的短事件实现：
 
 ```text
-07:00 - 20:00 北京尾号4/9限行
+前一天 20:00 - 20:05：明天北京尾号4/9限行
 ```
 
-同时在该事件中写入两个 `VALARM` 提醒：
+该事件写入开始时提醒：
 
-| 提醒时间 | 实现方式 | 说明 |
-| --- | --- | --- |
-| 前一天 20:00 | `TRIGGER:-PT11H` | 距离当天 07:00 还有 10 小时 |
-| 当天 08:00 | `TRIGGER:-PT0M` | 限行开始时提醒 |
+```ics
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:明天北京尾号4/9限行
+TRIGGER:PT0S
+END:VALARM
+```
 
-因为事件开始时间是当天 **08:00**，所以前一天 **20:00** 距离事件开始刚好是 **10 小时**。
+### 当天 08:00 提醒
+
+当天提醒不再额外生成 `08:00 - 08:05` 的短事件，而是写入主限行事件：
+
+```text
+当天 07:00 - 20:00：北京尾号4/9限行
+```
+
+由于主事件开始时间是当天 **07:00**，因此使用：
+
+```ics
+TRIGGER:PT1H
+```
+
+表示日程开始 **1 小时后提醒**，也就是当天 **08:00**。
+
+### 不再生成的事件
+
+当前版本不再生成：
+
+```text
+当天 08:00 - 08:05：今天北京尾号4/9限行
+```
+
+这样日历界面更简洁。
 
 ---
 
@@ -276,9 +341,12 @@ https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
 | `LIMIT_START_HOUR` / `LIMIT_START_MINUTE` | 限行开始时间 |
 | `LIMIT_END_HOUR` / `LIMIT_END_MINUTE` | 限行结束时间 |
 | `TARGET_TAIL_NUMBERS` | 目标尾号，默认 `4/9` |
-| `EVENT_SUMMARY` | 日历事件标题 |
-| `EVENT_DESCRIPTION` | 日历事件描述 |
-| `REMINDERS` | 提醒配置，默认前一天 20:00 和当天 08:00 |
+| `EVENT_SUMMARY` | 主限行事件标题 |
+| `EVENT_DESCRIPTION` | 主限行事件描述 |
+| `ENABLE_VALARM` | 是否给主限行事件写入提醒 |
+| `ENABLE_STANDALONE_REMINDER_EVENTS` | 是否生成前一天独立提醒事件 |
+| `PREVIOUS_DAY_REMINDER_HOUR` / `PREVIOUS_DAY_REMINDER_MINUTE` | 前一天提醒事件时间 |
+| `MAIN_EVENT_REMINDER_TRIGGER` | 主限行事件提醒时间，默认 `PT1H` |
 | `LIMIT_PERIODS` | 官方限行周期和每个工作日对应的尾号 |
 | `EXCLUDE_DATES` | 不限行的特殊日期 |
 | `OUTPUT_ICS_PATH` | `.ics` 输出路径 |
@@ -356,7 +424,7 @@ python3 generate_ics.py
 然后提交并推送：
 
 ```bash
-git add config.py docs/beijing_49_limit.ics
+git add config.py generate_ics.py docs/beijing_49_limit.ics
 git commit -m "update traffic restriction calendar rules"
 git push
 ```
@@ -412,7 +480,18 @@ iOS 订阅日历刷新不是实时的，可能需要等待一段时间。
 
 如果想立即验证，可以删除订阅后重新添加一次。
 
-### 4. 国产安卓手机可以订阅吗？
+### 4. iOS 里提醒显示不符合预期怎么办？
+
+iOS 可能会对订阅日历套用系统默认提醒，或者缓存旧的订阅内容。
+
+建议：
+
+1. 删除旧订阅后重新添加；
+2. 打开 iOS 设置，检查默认提醒时间；
+3. 确认 `.ics` 文件中已经包含最新的 `VALARM`；
+4. 等待一段时间让系统刷新订阅内容。
+
+### 5. 国产安卓手机可以订阅吗？
 
 部分国产安卓日历 App 支持 URL 订阅，可以直接添加 `.ics` 地址。
 
