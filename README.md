@@ -6,6 +6,28 @@
 
 ---
 
+## 在线页面
+
+项目提供一个 GitHub Pages 页面，包含订阅链接、ICS 下载入口和不同设备的使用说明：
+
+```text
+https://xuanhoucas.github.io/beijing-traffic-limit-calendar/
+```
+
+当前生成的日历订阅地址：
+
+```text
+https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
+```
+
+iOS 添加路径：
+
+```text
+设置 → 日历 → 账户 → 添加账户 → 其他 → 添加已订阅的日历
+```
+
+---
+
 ## 重要说明：Apple 日历提醒策略
 
 Apple 日历对外部订阅 `.ics` 文件中的 `VALARM` 支持不稳定：  
@@ -18,13 +40,13 @@ Apple 日历对外部订阅 `.ics` 文件中的 `VALARM` 支持不稳定：
 反向利用系统默认提醒
 ```
 
-如果你的 Apple 日历默认提醒是：
+当前配置假设 Apple 日历默认提醒是：
 
 ```text
 开始前 1 小时提醒
 ```
 
-那么：
+因此：
 
 ```text
 想前一天 20:00 提醒
@@ -39,24 +61,6 @@ Apple 日历对外部订阅 `.ics` 文件中的 `VALARM` 支持不稳定：
 ```
 
 也就是说，本项目不再依赖 `.ics` 里的 `VALARM`，而是通过调整事件开始时间来适配 Apple 日历的默认提醒机制。
-
----
-
-## 订阅地址
-
-当前生成的日历订阅地址：
-
-```text
-https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
-```
-
-iOS 添加路径：
-
-```text
-设置 → 日历 → 账户 → 添加账户 → 其他 → 添加已订阅的日历
-```
-
-填入上面的 `.ics` 地址即可。
 
 ---
 
@@ -147,13 +151,6 @@ TARGET_TAIL_NUMBERS = "4/9"
 
 在每个周期中对应的星期，然后生成该周期内所有对应日期的限行事件。
 
-这样做的好处是：
-
-- 后续更新规则时，只需要按官方通告填写完整周期规则
-- 不需要手动计算 4/9 到底轮到周几
-- 后续想生成其他尾号日历，只需要改 `TARGET_TAIL_NUMBERS`
-- 周期配置更直观，也更不容易出错
-
 ---
 
 ## 项目结构
@@ -162,7 +159,9 @@ TARGET_TAIL_NUMBERS = "4/9"
 beijing-traffic-limit-calendar/
 ├── config.py
 ├── generate_ics.py
+├── generate_index.py
 ├── docs/
+│   ├── index.html
 │   └── beijing_49_limit.ics
 ├── .gitignore
 └── README.md
@@ -170,9 +169,11 @@ beijing-traffic-limit-calendar/
 
 | 文件 | 说明 |
 | --- | --- |
-| `config.py` | 限行周期、目标尾号、提醒时间、事件文案、输出路径等配置 |
+| `config.py` | 限行周期、目标尾号、提醒偏移策略、事件文案、输出路径等配置 |
 | `generate_ics.py` | 根据配置生成 `.ics` 文件 |
-| `docs/beijing_49_limit.ics` | 生成后的日历订阅文件，用于 GitHub Pages 托管 |
+| `generate_index.py` | 根据配置生成 GitHub Pages 首页 |
+| `docs/index.html` | GitHub Pages 首页 |
+| `docs/beijing_49_limit.ics` | 生成后的日历订阅文件 |
 | `.gitignore` | 忽略 Python 缓存等无关文件 |
 | `README.md` | 项目说明文档 |
 
@@ -195,13 +196,21 @@ git clone https://github.com/xuanHouCAS/beijing-traffic-limit-calendar.git
 cd beijing-traffic-limit-calendar
 ```
 
-### 2. 生成 ICS 文件
+### 2. 生成 ICS 文件和首页
 
 ```bash
 python3 generate_ics.py
+python3 generate_index.py
 ```
 
-成功后会看到类似输出：
+成功后会生成：
+
+```text
+docs/beijing_49_limit.ics
+docs/index.html
+```
+
+`generate_ics.py` 成功输出示例：
 
 ```text
 Generated: docs/beijing_49_limit.ics
@@ -223,12 +232,6 @@ Reminder strategy:
   前一天 21:00 - 21:05 事件 → 实际 20:00 提醒
   当天 09:00 - 20:00 事件 → 实际 08:00 提醒
   实际限行时间 07:00 - 20:00 写在标题和描述中
-```
-
-生成文件默认位于：
-
-```text
-docs/beijing_49_limit.ics
 ```
 
 ---
@@ -275,23 +278,24 @@ grep -n "VALARM" docs/beijing_49_limit.ics
 
 ## 订阅日历
 
-### 方式一：本地导入
+### 方式一：GitHub Pages 页面
 
-可以直接下载或打开生成的文件：
+打开：
 
 ```text
-docs/beijing_49_limit.ics
+https://xuanhoucas.github.io/beijing-traffic-limit-calendar/
 ```
 
-然后导入到 Apple 日历、Outlook、Google Calendar 等客户端。
+页面中提供：
 
-这种方式是一次性导入，后续规则更新后不会自动同步，需要重新导入。
+- ICS 下载
+- 订阅链接
+- iOS 使用说明
+- 国产安卓使用说明
 
----
+### 方式二：直接 URL 订阅
 
-### 方式二：URL 订阅，推荐
-
-将 `docs/` 目录通过 GitHub Pages 或其他静态托管服务发布后，可以获得一个公网 HTTPS 地址，例如：
+订阅地址：
 
 ```text
 https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
@@ -306,7 +310,37 @@ https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
 | Google Calendar | 其他日历 → 通过网址添加 |
 | Outlook | 添加日历 → 从 Internet 订阅 |
 
-订阅方式下，日历客户端会定期拉取最新 `.ics` 文件。以后只要更新 GitHub 仓库中的 `.ics` 文件，订阅者无需更换链接。
+---
+
+## 国产安卓手机使用说明
+
+国产安卓系统日历对 `.ics` 的支持不完全一致。建议按以下顺序尝试：
+
+### 方式一：URL 订阅，推荐
+
+如果系统日历支持“订阅日历 / URL 导入 / 网络日历 / 添加日历”，可以直接添加：
+
+```text
+https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
+```
+
+这种方式会随 GitHub Pages 上的 `.ics` 更新而自动同步。
+
+### 方式二：下载 ICS 文件导入
+
+如果系统日历不支持 URL 订阅，可以打开：
+
+```text
+https://xuanhoucas.github.io/beijing-traffic-limit-calendar/
+```
+
+点击“下载 ICS 文件”，然后用系统日历打开并导入。
+
+注意：导入是一次性的，后续规则更新后需要重新下载导入。
+
+### 方式三：通过 Outlook / Google Calendar 中转
+
+如果系统日历既不支持 URL 订阅，也不支持 ICS 导入，可以使用 Outlook、Google Calendar 或其他支持 ICS 的日历服务中转。
 
 ---
 
@@ -330,13 +364,13 @@ Folder: /docs
 
 保存后，等待 GitHub Pages 构建完成。
 
-最终订阅链接格式为：
+最终首页地址：
 
 ```text
-https://你的用户名.github.io/仓库名/beijing_49_limit.ics
+https://xuanhoucas.github.io/beijing-traffic-limit-calendar/
 ```
 
-本仓库对应：
+最终订阅链接：
 
 ```text
 https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
@@ -393,18 +427,7 @@ OUTPUT_ICS_PATH = "docs/beijing_16_limit.ics"
 
 ```bash
 python3 generate_ics.py
-```
-
-即可生成：
-
-```text
-docs/beijing_16_limit.ics
-```
-
-如果需要通过 GitHub Pages 订阅，新订阅地址为：
-
-```text
-https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_16_limit.ics
+python3 generate_index.py
 ```
 
 ---
@@ -413,35 +436,17 @@ https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_16_limit.ics
 
 当北京市发布下一年度尾号限行通告后，按官方通告更新 `config.py` 中的 `LIMIT_PERIODS`。
 
-例如新增或替换为下一年度的周期配置：
-
-```python
-LIMIT_PERIODS = [
-    {
-        "name": "2027年第1轮限行周期",
-        "start": date(2027, 3, 29),
-        "end": date(2027, 6, 27),
-        "tail_numbers_by_weekday": {
-            0: "待填写",
-            1: "待填写",
-            2: "待填写",
-            3: "待填写",
-            4: "待填写",
-        },
-    },
-]
-```
-
 更新后重新生成：
 
 ```bash
 python3 generate_ics.py
+python3 generate_index.py
 ```
 
 然后提交并推送：
 
 ```bash
-git add config.py generate_ics.py docs/beijing_49_limit.ics
+git add config.py generate_ics.py generate_index.py README.md docs/
 git commit -m "update traffic restriction calendar rules"
 git push
 ```
@@ -521,7 +526,7 @@ iOS 订阅日历刷新不是实时的，可能需要等待一段时间。
 
 如果系统日历不支持 URL 订阅，可以下载 `.ics` 文件后导入，但导入是一次性的，后续不会自动更新。
 
-更通用的方式是使用支持 URL 订阅的日历服务或 App，例如 Google Calendar、Outlook 等。
+更通用的方式是使用支持 URL 订阅的日历服务或 App，例如 Outlook、Google Calendar 等。
 
 ---
 
