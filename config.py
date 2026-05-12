@@ -4,8 +4,12 @@ from datetime import date
 # 基础日历配置
 # =========================
 
-CALENDAR_NAME = "北京尾号4/9限行"
+CALENDAR_NAME = "北京尾号限行"
 TIMEZONE = "Asia/Shanghai"
+
+# 用于强制 Apple Calendar 识别事件更新。
+# 如果修改提醒策略后 Apple 仍显示旧提醒，可以把这里从 v1 改成 v2 / v3。
+EVENT_UID_VERSION = "v3"
 
 # 限行时间：07:00 - 20:00
 LIMIT_START_HOUR = 7
@@ -31,13 +35,8 @@ OUTPUT_ICS_PATH = "docs/beijing_49_limit.ics"
 # 提醒配置
 # =========================
 
-# 主限行事件是否写入 VALARM
-# 开启后，主限行事件会在开始后 1 小时提醒。
-# 主事件时间是 07:00 - 20:00，因此提醒时间是当天 08:00。
-ENABLE_VALARM = True
-
-# 是否额外生成“前一天提醒事件”
-ENABLE_STANDALONE_REMINDER_EVENTS = True
+# 是否生成前一天提醒事件
+ENABLE_PREVIOUS_DAY_REMINDER_EVENT = True
 
 # 前一天提醒事件持续时间，单位：分钟
 REMINDER_EVENT_DURATION_MINUTES = 5
@@ -50,19 +49,13 @@ PREVIOUS_DAY_REMINDER_DESCRIPTION = (
     "明天北京尾号4/9限行，请提前安排出行。"
 )
 
-# 主限行事件提醒：事件开始后 1 小时，也就是当天 08:00
-MAIN_EVENT_REMINDER_TRIGGER = "PT1H"
+# 主限行事件提醒时间：当天 08:00
+# 主事件本身是 07:00 - 20:00，但提醒时间单独配置为 08:00。
+MAIN_EVENT_REMINDER_HOUR = 8
+MAIN_EVENT_REMINDER_MINUTE = 0
 MAIN_EVENT_REMINDER_DESCRIPTION = (
     "今天北京尾号4/9限行，当前已进入限行时段。"
 )
-
-# 主事件提醒列表
-REMINDERS = [
-    {
-        "trigger": MAIN_EVENT_REMINDER_TRIGGER,
-        "description": MAIN_EVENT_REMINDER_DESCRIPTION,
-    },
-]
 
 
 # =========================
@@ -85,10 +78,6 @@ WEEKDAY_NAMES = {
 
 # 每个周期配置完整的官方尾号限行规则
 # 程序会自动找到 TARGET_TAIL_NUMBERS = "4/9" 对应的 weekday
-#
-# tail_numbers_by_weekday:
-#   key 是 weekday，Monday=0 ... Friday=4
-#   value 是当天限行尾号
 LIMIT_PERIODS = [
     {
         "name": "2026年第1轮限行周期",
