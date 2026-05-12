@@ -4,7 +4,7 @@ from datetime import date
 # 基础日历配置
 # =========================
 
-CALENDAR_NAME = "北京尾号4/9限行"
+CALENDAR_NAME = "北京尾号限行"
 TIMEZONE = "Asia/Shanghai"
 
 # 用于强制 Apple Calendar 识别事件更新。
