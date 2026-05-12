@@ -24,8 +24,7 @@ from config import (
     PREVIOUS_DAY_REMINDER_MINUTE,
     PREVIOUS_DAY_REMINDER_SUMMARY,
     PREVIOUS_DAY_REMINDER_DESCRIPTION,
-    MAIN_EVENT_REMINDER_HOUR,
-    MAIN_EVENT_REMINDER_MINUTE,
+    MAIN_EVENT_REMINDER_TRIGGER,
     MAIN_EVENT_REMINDER_DESCRIPTION,
 )
 
@@ -109,24 +108,47 @@ def validate_periods() -> None:
         get_target_weekday(period)
 
 
-def generate_absolute_valarm(trigger_dt: datetime, description: str) -> str:
+def build_uid(seed: str) -> str:
     """
-    生成绝对时间提醒。
+    构建稳定 UID。
+    EVENT_UID_VERSION 会进入 seed，便于提醒逻辑更新后强制 Apple 重新识别事件。
+    """
+    return f"{uuid.uuid5(uuid.NAMESPACE_DNS, seed)}@beijing-traffic-limit-calendar"
 
-    使用 TRIGGER;VALUE=DATE-TIME，可以避免 Apple Calendar
-    对 PT0S / PT1H 等相对提醒解析不稳定的问题。
+
+def generate_apple_valarm(
+    uid_seed: str,
+    trigger: str,
+    description: str,
+) -> str:
     """
-    alarm_uid = uuid.uuid5(
-        uuid.NAMESPACE_DNS,
-        f"alarm-{EVENT_UID_VERSION}-{description}-{format_utc_datetime(trigger_dt)}",
-    )
+    生成更接近 Apple Calendar / iCloud 风格的 VALARM。
+
+    trigger 示例：
+    - "PT0S"：日程开始时提醒
+    - "PT1H"：日程开始 1 小时后提醒
+    - "-PT10M"：日程开始前 10 分钟提醒
+
+    这里使用：
+    - UID
+    - X-WR-ALARMUID
+    - X-APPLE-DEFAULT-ALARM:TRUE
+    - TRIGGER;RELATED=START
+    """
+    alarm_uid = str(
+        uuid.uuid5(
+            uuid.NAMESPACE_DNS,
+            f"alarm-{EVENT_UID_VERSION}-{uid_seed}-{trigger}-{description}",
+        )
+    ).upper()
 
     return f"""BEGIN:VALARM
 UID:{alarm_uid}
 X-WR-ALARMUID:{alarm_uid}
+X-APPLE-DEFAULT-ALARM:TRUE
 ACTION:DISPLAY
 DESCRIPTION:{escape_ics_text(description)}
-TRIGGER;VALUE=DATE-TIME:{format_utc_datetime(trigger_dt)}
+TRIGGER;RELATED=START:{trigger}
 END:VALARM"""
 
 
@@ -143,7 +165,7 @@ def build_event(
     """
     构建标准 VEVENT。
     """
-    uid = f"{uuid.uuid5(uuid.NAMESPACE_DNS, uid_seed)}@beijing-traffic-limit-calendar"
+    uid = build_uid(uid_seed)
     transparency = "TRANSPARENT" if transparent else "OPAQUE"
     alarm_part = f"\n{alarms_text}" if alarms_text else ""
 
@@ -151,7 +173,7 @@ def build_event(
 UID:{uid}
 DTSTAMP:{dtstamp}
 LAST-MODIFIED:{dtstamp}
-SEQUENCE:3
+SEQUENCE:4
 STATUS:CONFIRMED
 TRANSP:{transparency}
 DTSTART;TZID={TIMEZONE}:{format_ics_datetime(start_dt)}
@@ -170,8 +192,9 @@ def generate_main_limit_event(
     """
     生成主限行事件：当天 07:00 - 20:00。
 
-    提醒时间：当天 08:00。
-    注意：提醒使用绝对时间 TRIGGER;VALUE=DATE-TIME。
+    提醒时间：
+    - TRIGGER;RELATED=START:PT1H
+    - 即日程开始后 1 小时提醒，也就是当天 08:00。
     """
     start_dt = datetime.combine(
         current_date,
@@ -182,12 +205,6 @@ def generate_main_limit_event(
     end_dt = datetime.combine(
         current_date,
         time(LIMIT_END_HOUR, LIMIT_END_MINUTE),
-        tzinfo=TZ,
-    )
-
-    reminder_dt = datetime.combine(
-        current_date,
-        time(MAIN_EVENT_REMINDER_HOUR, MAIN_EVENT_REMINDER_MINUTE),
         tzinfo=TZ,
     )
 
@@ -211,8 +228,9 @@ def generate_main_limit_event(
         summary=EVENT_SUMMARY,
         description=description,
         dtstamp=dtstamp,
-        alarms_text=generate_absolute_valarm(
-            trigger_dt=reminder_dt,
+        alarms_text=generate_apple_valarm(
+            uid_seed=uid_seed,
+            trigger=MAIN_EVENT_REMINDER_TRIGGER,
             description=MAIN_EVENT_REMINDER_DESCRIPTION,
         ),
         transparent=False,
@@ -223,8 +241,12 @@ def generate_previous_day_reminder_event(current_date, dtstamp: str) -> str:
     """
     生成前一天 20:00 的独立提醒事件。
 
-    事件时间：前一天 20:00 - 20:05
-    提醒时间：前一天 20:00
+    事件时间：
+    - 前一天 20:00 - 20:05
+
+    提醒时间：
+    - TRIGGER;RELATED=START:PT0S
+    - 即日程开始时提醒，也就是前一天 20:00。
     """
     reminder_date = current_date - timedelta(days=1)
 
@@ -254,8 +276,9 @@ def generate_previous_day_reminder_event(current_date, dtstamp: str) -> str:
         summary=PREVIOUS_DAY_REMINDER_SUMMARY,
         description=description,
         dtstamp=dtstamp,
-        alarms_text=generate_absolute_valarm(
-            trigger_dt=start_dt,
+        alarms_text=generate_apple_valarm(
+            uid_seed=uid_seed,
+            trigger="PT0S",
             description=PREVIOUS_DAY_REMINDER_SUMMARY,
         ),
         transparent=True,
@@ -268,9 +291,9 @@ def generate_events() -> list[str]:
 
     每个限行日生成：
     1. 前一天 20:00 - 20:05 提醒事件：
-       明天北京尾号4/9限行，20:00 准时提醒。
+       明天北京尾号4/9限行，开始时提醒。
     2. 当天 07:00 - 20:00 主限行事件：
-       北京尾号4/9限行，08:00 准时提醒。
+       北京尾号4/9限行，开始后 1 小时提醒。
     """
     validate_periods()
 
@@ -372,9 +395,15 @@ def main() -> None:
         )
 
     print("\nReminder strategy:")
-    print("  前一天 20:00 - 20:05：明天北京尾号4/9限行，20:00 准时提醒")
-    print("  当天 07:00 - 20:00：北京尾号4/9限行，08:00 准时提醒")
+    print("  前一天 20:00 - 20:05：明天北京尾号4/9限行，开始时提醒")
+    print("  当天 07:00 - 20:00：北京尾号4/9限行，开始后 1 小时提醒")
     print("  当天 08:00 - 08:05：不再生成独立提醒事件")
+
+    print("\nApple Calendar alarm style:")
+    print("  UID")
+    print("  X-WR-ALARMUID")
+    print("  X-APPLE-DEFAULT-ALARM:TRUE")
+    print("  TRIGGER;RELATED=START")
 
     print("\nUID version:")
     print(f"  {EVENT_UID_VERSION}")

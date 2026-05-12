@@ -4,8 +4,8 @@
 
 订阅生成后的日历后，每个限行日会在手机 / 电脑日历中生成限行日程，并支持两次提醒：
 
-- **前一天 20:00**：通过一个 5 分钟提醒事件，提醒明天限行
-- **当天 08:00**：通过主限行事件的 `VALARM`，在限行开始 1 小时后提醒当前已进入限行时段
+- **前一天 20:00**：提醒明天限行
+- **当天 08:00**：提醒当前已进入限行时段
 
 当前版本默认针对 **车牌尾号 4 / 9** 的车辆。其他尾号可以通过修改 `config.py` 后自行生成。
 
@@ -56,8 +56,8 @@ iOS 添加路径：
 
 | 事件 | 时间 | 提醒方式 | 说明 |
 | --- | --- | --- | --- |
-| 前一天提醒事件 | 前一天 20:00 - 20:05 | 日程开始时提醒，`TRIGGER:PT0S` | 提醒明天尾号 4/9 限行 |
-| 主限行事件 | 当天 07:00 - 20:00 | 日程开始后 1 小时提醒，`TRIGGER:PT1H` | 也就是当天 08:00 提醒 |
+| 前一天提醒事件 | 前一天 20:00 - 20:05 | 日程开始时提醒，`TRIGGER;RELATED=START:PT0S` | 提醒明天尾号 4/9 限行 |
+| 主限行事件 | 当天 07:00 - 20:00 | 日程开始后 1 小时提醒，`TRIGGER;RELATED=START:PT1H` | 也就是当天 08:00 提醒 |
 
 也就是说，日历中会显示：
 
@@ -66,17 +66,52 @@ iOS 添加路径：
 当天 07:00 - 20:00：北京尾号4/9限行
 ```
 
-其中当天 08:00 的提醒不再额外生成一个短事件，而是写在主限行事件的 `VALARM` 中：
+当前版本**不再单独生成**：
+
+```text
+当天 08:00 - 08:05：今天北京尾号4/9限行
+```
+
+当天 08:00 的提醒写入主限行事件的 `VALARM` 中。
+
+---
+
+## Apple 日历提醒兼容设计
+
+Apple 日历 / iCloud 日历对订阅 `.ics` 中的提醒解析比较敏感。为了尽量避免系统套用默认提醒，本项目的 `VALARM` 采用更接近 Apple Calendar 的写法：
 
 ```ics
 BEGIN:VALARM
+UID:...
+X-WR-ALARMUID:...
+X-APPLE-DEFAULT-ALARM:TRUE
 ACTION:DISPLAY
-DESCRIPTION:今天北京尾号4/9限行，当前已进入限行时段。
-TRIGGER:PT1H
+DESCRIPTION:...
+TRIGGER;RELATED=START:PT1H
 END:VALARM
 ```
 
-这样可以避免日历中出现过多短事件，同时仍然能在当天 08:00 收到提醒。
+其中：
+
+- `UID`：提醒自身的唯一 ID
+- `X-WR-ALARMUID`：Apple 日历常见的提醒 ID 扩展字段
+- `X-APPLE-DEFAULT-ALARM:TRUE`：Apple 日历常见的默认提醒标记
+- `TRIGGER;RELATED=START:PT0S`：日程开始时提醒
+- `TRIGGER;RELATED=START:PT1H`：日程开始后 1 小时提醒
+
+如果修改提醒逻辑后 Apple 日历仍显示旧提醒，可以修改 `config.py` 中的：
+
+```python
+EVENT_UID_VERSION = "v4"
+```
+
+例如改成：
+
+```python
+EVENT_UID_VERSION = "v5"
+```
+
+然后重新生成 `.ics` 并推送。这样会让 Apple 日历把事件识别为新版本，减少旧缓存影响。
 
 ---
 
@@ -183,7 +218,7 @@ python3 generate_ics.py
 Generated: docs/beijing_49_limit.ics
 Total events: 104
 Main limit events: 52
-Standalone reminder events: 52
+Previous-day reminder events: 52
 
 Target tail numbers:
   4/9
@@ -199,8 +234,14 @@ Reminder strategy:
   当天 07:00 - 20:00：北京尾号4/9限行，开始后 1 小时提醒
   当天 08:00 - 08:05：不再生成独立提醒事件
 
-VALARM:
-  enabled
+Apple Calendar alarm style:
+  UID
+  X-WR-ALARMUID
+  X-APPLE-DEFAULT-ALARM:TRUE
+  TRIGGER;RELATED=START
+
+UID version:
+  v4
 ```
 
 生成文件默认位于：
@@ -211,51 +252,59 @@ docs/beijing_49_limit.ics
 
 ---
 
-## 提醒逻辑说明
+## 检查生成结果
 
-### 前一天 20:00 提醒
+检查前一天提醒事件：
 
-前一天提醒通过一个独立的短事件实现：
-
-```text
-前一天 20:00 - 20:05：明天北京尾号4/9限行
+```bash
+grep -A14 -B3 "SUMMARY:明天北京尾号4/9限行" docs/beijing_49_limit.ics | head -40
 ```
 
-该事件写入开始时提醒：
+应该能看到类似：
 
 ```ics
+DTSTART;TZID=Asia/Shanghai:20260512T200000
+DTEND;TZID=Asia/Shanghai:20260512T200500
+SUMMARY:明天北京尾号4/9限行
 BEGIN:VALARM
+UID:...
+X-WR-ALARMUID:...
+X-APPLE-DEFAULT-ALARM:TRUE
 ACTION:DISPLAY
 DESCRIPTION:明天北京尾号4/9限行
-TRIGGER:PT0S
+TRIGGER;RELATED=START:PT0S
 END:VALARM
 ```
 
-### 当天 08:00 提醒
+检查主限行事件：
 
-当天提醒不再额外生成 `08:00 - 08:05` 的短事件，而是写入主限行事件：
-
-```text
-当天 07:00 - 20:00：北京尾号4/9限行
+```bash
+grep -A18 -B3 "SUMMARY:北京尾号4/9限行" docs/beijing_49_limit.ics | head -50
 ```
 
-由于主事件开始时间是当天 **07:00**，因此使用：
+应该能看到类似：
 
 ```ics
-TRIGGER:PT1H
+DTSTART;TZID=Asia/Shanghai:20260513T070000
+DTEND;TZID=Asia/Shanghai:20260513T200000
+SUMMARY:北京尾号4/9限行
+BEGIN:VALARM
+UID:...
+X-WR-ALARMUID:...
+X-APPLE-DEFAULT-ALARM:TRUE
+ACTION:DISPLAY
+DESCRIPTION:今天北京尾号4/9限行，当前已进入限行时段。
+TRIGGER;RELATED=START:PT1H
+END:VALARM
 ```
 
-表示日程开始 **1 小时后提醒**，也就是当天 **08:00**。
+确认不再生成当天 08:00 短事件：
 
-### 不再生成的事件
-
-当前版本不再生成：
-
-```text
-当天 08:00 - 08:05：今天北京尾号4/9限行
+```bash
+grep -n "SUMMARY:今天北京尾号4/9限行" docs/beijing_49_limit.ics
 ```
 
-这样日历界面更简洁。
+如果没有输出，就说明没有生成独立的当天 08:00 - 08:05 短事件。
 
 ---
 
@@ -338,13 +387,13 @@ https://xuanhoucas.github.io/beijing-traffic-limit-calendar/beijing_49_limit.ics
 | --- | --- |
 | `CALENDAR_NAME` | 日历显示名称 |
 | `TIMEZONE` | 时区，默认 `Asia/Shanghai` |
+| `EVENT_UID_VERSION` | 事件 UID 版本号，用于刷新 Apple 日历缓存 |
 | `LIMIT_START_HOUR` / `LIMIT_START_MINUTE` | 限行开始时间 |
 | `LIMIT_END_HOUR` / `LIMIT_END_MINUTE` | 限行结束时间 |
 | `TARGET_TAIL_NUMBERS` | 目标尾号，默认 `4/9` |
 | `EVENT_SUMMARY` | 主限行事件标题 |
 | `EVENT_DESCRIPTION` | 主限行事件描述 |
-| `ENABLE_VALARM` | 是否给主限行事件写入提醒 |
-| `ENABLE_STANDALONE_REMINDER_EVENTS` | 是否生成前一天独立提醒事件 |
+| `ENABLE_PREVIOUS_DAY_REMINDER_EVENT` | 是否生成前一天独立提醒事件 |
 | `PREVIOUS_DAY_REMINDER_HOUR` / `PREVIOUS_DAY_REMINDER_MINUTE` | 前一天提醒事件时间 |
 | `MAIN_EVENT_REMINDER_TRIGGER` | 主限行事件提醒时间，默认 `PT1H` |
 | `LIMIT_PERIODS` | 官方限行周期和每个工作日对应的尾号 |
@@ -482,14 +531,15 @@ iOS 订阅日历刷新不是实时的，可能需要等待一段时间。
 
 ### 4. iOS 里提醒显示不符合预期怎么办？
 
-iOS 可能会对订阅日历套用系统默认提醒，或者缓存旧的订阅内容。
+Apple 日历可能会缓存旧的订阅事件，或者继续显示之前解析过的提醒。
 
 建议：
 
 1. 删除旧订阅后重新添加；
-2. 打开 iOS 设置，检查默认提醒时间；
-3. 确认 `.ics` 文件中已经包含最新的 `VALARM`；
-4. 等待一段时间让系统刷新订阅内容。
+2. 确认 `.ics` 文件中已经包含最新的 `VALARM`；
+3. 如果仍然不刷新，修改 `config.py` 中的 `EVENT_UID_VERSION`，例如从 `v4` 改成 `v5`；
+4. 重新生成 `.ics` 并推送；
+5. 再次删除旧订阅并重新添加。
 
 ### 5. 国产安卓手机可以订阅吗？
 
